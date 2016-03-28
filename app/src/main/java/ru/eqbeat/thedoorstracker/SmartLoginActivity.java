@@ -59,7 +59,7 @@ public class SmartLoginActivity extends AppCompatActivity implements
     ProgressDialog progress;
     //LinearLayout signUpPanel;
     ViewGroup mContainer;
-    LinearLayout signinContainer, signupContainer;
+    LinearLayout signinContainer, signupContainer, signupStage2Container;
     ImageView appLogo;
 
 
@@ -96,10 +96,24 @@ public class SmartLoginActivity extends AppCompatActivity implements
         //Get the containers required to inject the views
         mContainer = (ViewGroup) findViewById(R.id.main_container);
         signinContainer = (LinearLayout) findViewById(R.id.signin_container);
+        signupStage2Container = (LinearLayout) findViewById(R.id.signup_stage2_container);
         signupContainer = (LinearLayout) findViewById(R.id.signup_container);
 
         //Inject the views in the respective containers
         LayoutInflater layoutInflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+
+        /**
+         * init second step of social registration
+         * @author a.khmelik 2016-03-28
+         */
+        {
+            signupStage2Container.addView(layoutInflater.inflate(R.layout.fragment_stage2_login, mContainer, false));
+            //listeners
+            findViewById(R.id.custom_signin_button_stage2).setOnClickListener(this);
+
+            //Hide necessary views
+            signupStage2Container.setVisibility(View.GONE);
+        }
 
         //include views based on user settings
         if(config.isCustomLoginEnabled()){
@@ -438,18 +452,34 @@ public class SmartLoginActivity extends AppCompatActivity implements
     }
 
     private void finishLogin(SmartUser smartUser){
+
+
+//        @todo  should add post auth from backend
         UserSessionManager sessionManager = new UserSessionManager();
         if(sessionManager.setUserSession(this, smartUser)){
             Intent intent = new Intent();
             intent.putExtra(SmartLoginConfig.USER, smartUser);
-            if(smartUser instanceof SmartFacebookUser) {
-                setResult(SmartLoginConfig.FACEBOOK_LOGIN_REQUEST, intent);
-            } else if(smartUser instanceof SmartGoogleUser) {
-                setResult(SmartLoginConfig.GOOGLE_LOGIN_REQUEST, intent);
-            } else {
-                setResult(SmartLoginConfig.CUSTOM_LOGIN_REQUEST, intent);
+
+            if(smartUser instanceof SmartFacebookUser || smartUser instanceof SmartGoogleUser){
+
+                signupStage2Container.setVisibility(View.VISIBLE);
+                signinContainer.setVisibility(View.GONE);
+                signupContainer.setVisibility(View.GONE);
+
+//                if(smartUser instanceof SmartFacebookUser) {
+//                    setResult(SmartLoginConfig.FACEBOOK_LOGIN_REQUEST, intent);
+//                } else if(smartUser instanceof SmartGoogleUser) {
+//                    setResult(SmartLoginConfig.GOOGLE_LOGIN_REQUEST, intent);
+//                }
+
+
+
             }
-            finish();
+            else {
+                setResult(SmartLoginConfig.CUSTOM_LOGIN_REQUEST, intent);
+                finish();
+            }
+
         } else {
             DialogUtil.getErrorDialog(R.string.network_error, this);
         }
