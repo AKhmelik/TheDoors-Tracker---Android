@@ -53,7 +53,7 @@ public class SendCoordinatesService extends Service {
                     String imei = getImei();
 
                         try {
-                            String backendRequest = "http://eqbeat.ru/index.php/metric/getdata?mid=" + imei
+                            String backendRequest = "http://"+Config.API_URL+"/index.php/metric/getdata?mid=" + imei
                                     + "&latitude=" + location.getLatitude()
                                     + "&longitude=" + location.getLongitude();
                             new SetMarketsDataTask().execute(backendRequest);

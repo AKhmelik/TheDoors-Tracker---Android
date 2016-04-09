@@ -20,16 +20,13 @@ import studios.codelight.smartloginlibrary.SmartCustomLogoutListener;
 import studios.codelight.smartloginlibrary.SmartLoginBuilder;
 import studios.codelight.smartloginlibrary.SmartLoginConfig;
 import studios.codelight.smartloginlibrary.manager.UserSessionManager;
-import studios.codelight.smartloginlibrary.users.SmartFacebookUser;
-import studios.codelight.smartloginlibrary.users.SmartGoogleUser;
-import studios.codelight.smartloginlibrary.users.SmartUser;
 
 
 public class MainActivity extends AppCompatActivity implements SmartCustomLogoutListener, SmartCustomLoginListener {
     //SmartFacebookResult smartFacebookResult;
     TextView loginResult;
     CheckBox customLogin, facebookLogin, googleLogin, appLogoCheckBox;
-    SmartUser currentUser;
+    UserApi currentUser;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,14 +43,7 @@ public class MainActivity extends AppCompatActivity implements SmartCustomLogout
         currentUser = UserSessionManager.getCurrentUser(this);
         String display = "no user";
         if(currentUser != null) {
-            if (currentUser instanceof SmartFacebookUser) {
-                SmartFacebookUser facebookUser = (SmartFacebookUser) currentUser;
-                display = facebookUser.getProfileName() + " (FacebookUser)is logged in";
-            } else if (currentUser instanceof SmartGoogleUser) {
-                display = ((SmartGoogleUser) currentUser).getDisplayName() + " (GoogleUser) is logged in";
-            } else {
-                display = currentUser.getUsername() + " (Custom User) is logged in";
-            }
+            display = currentUser.hash+ " (Custom User) is logged in";
         }
         loginResult.setText(display);
 
@@ -91,7 +81,7 @@ public class MainActivity extends AppCompatActivity implements SmartCustomLogout
                             .isFacebookLoginEnabled(true)
                             .withFacebookAppId(getString(R.string.facebook_app_id)).withFacebookPermissions(permissions)
                             .isGoogleLoginEnabled(googleLogin.isChecked())
-                            .isCustomLoginEnabled(customLogin.isChecked(), SmartLoginConfig.LoginType.withEmail)
+                            .isCustomLoginEnabled(customLogin.isChecked(), SmartLoginConfig.LoginType.withUsername)
                             .setSmartCustomLoginHelper(MainActivity.this)
                             .build();
 
@@ -134,24 +124,10 @@ public class MainActivity extends AppCompatActivity implements SmartCustomLogout
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         String fail = "Login Failed";
-        if(resultCode == SmartLoginConfig.FACEBOOK_LOGIN_REQUEST){
-            SmartFacebookUser user;
-            try {
-                user = data.getParcelableExtra(SmartLoginConfig.USER);
-                String userDetails = user.getProfileName() + " " + user.getEmail() + " " + user.getBirthday();
-                loginResult.setText(userDetails);
-            }catch (Exception e){
-                loginResult.setText(fail);
-            }
-        }
-        else if(resultCode == SmartLoginConfig.GOOGLE_LOGIN_REQUEST){
-            SmartGoogleUser user = data.getParcelableExtra(SmartLoginConfig.USER);
-            String userDetails = user.getEmail() + " " + user.getBirthday() + " " + user.getAboutMe();
-            loginResult.setText(userDetails);
-        }
-        else if(resultCode == SmartLoginConfig.CUSTOM_LOGIN_REQUEST){
-            SmartUser user = data.getParcelableExtra(SmartLoginConfig.USER);
-            String userDetails = user.getUsername() + " (Custom User)";
+
+        if(resultCode == SmartLoginConfig.CUSTOM_LOGIN_REQUEST){
+            UserApi user = data.getParcelableExtra(SmartLoginConfig.USER);
+            String userDetails = user.hash + " (Custom User)";
             loginResult.setText(userDetails);
         }
         /*else if(resultCode == SmartLoginConfig.CUSTOM_SIGNUP_REQUEST){
@@ -166,21 +142,21 @@ public class MainActivity extends AppCompatActivity implements SmartCustomLogout
     }
 
     @Override
-    public boolean customUserSignout(SmartUser smartUser) {
+    public boolean customUserSignout(UserApi smartUser) {
         //Implement your logic
         return true;
     }
 
 
     @Override
-    public boolean customSignin(SmartUser user) {
+    public boolean customSignin(UserApi user) {
         //This "user" will have only username and password set.
-        Toast.makeText(MainActivity.this, user.getUsername() + " " + user.getPassword(), Toast.LENGTH_SHORT).show();
+        Toast.makeText(MainActivity.this, user.hash, Toast.LENGTH_SHORT).show();
         return true;
     }
 
     @Override
-    public boolean customSignup(SmartUser newUser) {
+    public boolean customSignup(UserApi newUser) {
         //Implement your our custom sign up logic and return true if success
         return true;
     }

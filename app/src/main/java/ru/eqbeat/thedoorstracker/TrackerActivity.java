@@ -43,7 +43,9 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public class MainActivityOld extends AppCompatActivity {
+import studios.codelight.smartloginlibrary.manager.UserSessionManager;
+
+public class TrackerActivity extends AppCompatActivity {
 
     private GoogleMap mMap; // Might be null if Google Play services APK is not available.
 
@@ -63,7 +65,8 @@ public class MainActivityOld extends AppCompatActivity {
 
     private String endPointCoreLngDefault;
     private String endPointCoreLatDefault;
-    private MainActivityOld currnetActivity;
+    private TrackerActivity currnetActivity;
+    private UserApi currentUser;
 
     private class LocationListener implements android.location.LocationListener {
         Location mLastLocation;
@@ -168,6 +171,8 @@ public class MainActivityOld extends AppCompatActivity {
         btExit.setOnClickListener(new View.OnClickListener() {
             public void onClick(View arg0) {
                 stopService(new Intent(currnetActivity, SendCoordinatesService.class));
+                UserSessionManager sessionManager = new UserSessionManager();
+                sessionManager.setUserSession(currnetActivity, null);
                 finish();
                 System.exit(0);
             }
@@ -291,9 +296,12 @@ public class MainActivityOld extends AppCompatActivity {
          */
         @Override
         protected Void doInBackground(String... params) {
-            reqUrl =  "http://eqbeat.ru/index.php/metric/getdata?mid="+imei
+            currentUser = UserSessionManager.getCurrentUser(currnetActivity);
+
+            reqUrl =  "http://"+Config.API_URL+"/index.php/metric/getdata?mid="+imei
                     +"&latitude="+latitudeGlobal
-                    +"&longitude="+longitudeGlobal;
+                    +"&longitude="+longitudeGlobal
+                    +"&hash="+currentUser.hash;
             invokeWS();
             return null;
         }

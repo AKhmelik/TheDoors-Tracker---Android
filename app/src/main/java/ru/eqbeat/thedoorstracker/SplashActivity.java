@@ -11,9 +11,6 @@ import studios.codelight.smartloginlibrary.SmartCustomLoginListener;
 import studios.codelight.smartloginlibrary.SmartCustomLogoutListener;
 import studios.codelight.smartloginlibrary.SmartLoginBuilder;
 import studios.codelight.smartloginlibrary.SmartLoginConfig;
-import studios.codelight.smartloginlibrary.users.SmartFacebookUser;
-import studios.codelight.smartloginlibrary.users.SmartGoogleUser;
-import studios.codelight.smartloginlibrary.users.SmartUser;
 
 /**
  * Created by AKhmelik on 27.03.2016.
@@ -52,19 +49,19 @@ public class SplashActivity extends AppCompatActivity implements SmartCustomLogo
     }
 
     @Override
-    public boolean customSignin(SmartUser user) {
-        Toast.makeText(SplashActivity.this, user.getUsername() + " " + user.getPassword(), Toast.LENGTH_SHORT).show();
+    public boolean customSignin(UserApi user) {
+        Toast.makeText(SplashActivity.this, user.hash + " " + user.is_reg, Toast.LENGTH_SHORT).show();
         return true;
     }
 
     @Override
-    public boolean customSignup(SmartUser newUser) {
+    public boolean customSignup(UserApi newUser) {
         newUser=newUser;
         return false;
     }
 
     @Override
-    public boolean customUserSignout(SmartUser smartUser) {
+    public boolean customUserSignout(UserApi smartUser) {
         smartUser=smartUser;
         return false;
     }
@@ -74,34 +71,15 @@ public class SplashActivity extends AppCompatActivity implements SmartCustomLogo
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         String fail = "Login Failed";
-        if(resultCode == SmartLoginConfig.FACEBOOK_LOGIN_REQUEST){
-            SmartFacebookUser user;
-            try {
-                user = data.getParcelableExtra(SmartLoginConfig.USER);
-                String userDetails = user.getProfileName() + " " + user.getEmail() + " " + user.getBirthday();
-                Toast.makeText(SplashActivity.this, userDetails, Toast.LENGTH_SHORT).show();
 
-            }catch (Exception e){
-                Toast.makeText(SplashActivity.this, fail, Toast.LENGTH_SHORT).show();
-            }
+
+
+        if(resultCode == SmartLoginConfig.CUSTOM_LOGIN_REQUEST){
+            Intent intentTracker = new Intent(this, TrackerActivity.class);
+            startActivity(intentTracker);
         }
-        else if(resultCode == SmartLoginConfig.GOOGLE_LOGIN_REQUEST){
-            SmartGoogleUser user = data.getParcelableExtra(SmartLoginConfig.USER);
-            String userDetails = user.getEmail() + " " + user.getBirthday() + " " + user.getAboutMe();
-            Toast.makeText(SplashActivity.this, userDetails, Toast.LENGTH_SHORT).show();
-        }
-        else if(resultCode == SmartLoginConfig.CUSTOM_LOGIN_REQUEST){
-            SmartUser user = data.getParcelableExtra(SmartLoginConfig.USER);
-            String userDetails = user.getUsername() + " (Custom User)";
-            Toast.makeText(SplashActivity.this, userDetails, Toast.LENGTH_SHORT).show();
-        }
-        /*else if(resultCode == SmartLoginConfig.CUSTOM_SIGNUP_REQUEST){
-            SmartUser user = data.getParcelableExtra(SmartLoginConfig.USER);
-            String userDetails = user.getUsername() + " (Custom User)";
-            loginResult.setText(userDetails);
-        }*/
         else if(resultCode == RESULT_CANCELED){
-            Toast.makeText(SplashActivity.this, fail, Toast.LENGTH_SHORT).show();
+            finish();
         }
 
     }

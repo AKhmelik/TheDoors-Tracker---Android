@@ -1,9 +1,9 @@
 package studios.codelight.smartloginlibrary;
 
-import studios.codelight.smartloginlibrary.users.SmartUser;
+import ru.eqbeat.thedoorstracker.UserApi;
 
 
 public interface SmartCustomLoginListener {
-    boolean customSignin(SmartUser user);
-    boolean customSignup(SmartUser newUser);
+    boolean customSignin(UserApi user);
+    boolean customSignup(UserApi newUser);
 }

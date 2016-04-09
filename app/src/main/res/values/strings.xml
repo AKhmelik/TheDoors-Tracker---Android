@@ -6,7 +6,6 @@
     <string name="user_exists">User already logged in</string>
 
 
-
     <string name="hello_world">Hello world!</string>
 
     <string name="fb_login_text">Sign in with facebook</string>
@@ -17,7 +16,7 @@
     <!-- hints -->
     <string name="email_hint">Email</string>
     <string name="username_hint">Username</string>
-    <string name="username_email_hint">Username/Email</string>
+    <string name="username_email_hint">Username</string>
     <string name="password_hint">Password</string>
     <string name="confirm_password_hint">Confirm Password</string>
 
@@ -42,5 +41,6 @@
     <string name="logging_holder">Logging in…</string>
     <string name="getting_data">Getting User Info…</string>
     <string name="password_mismatch">Make sure your passwords match</string>
+    <string name="logout">Logout</string>
 
 </resources>

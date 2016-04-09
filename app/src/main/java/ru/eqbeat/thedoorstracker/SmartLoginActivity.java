@@ -4,8 +4,10 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.AppCompatButton;
 import android.util.Log;
@@ -27,16 +29,22 @@ import com.facebook.GraphRequest;
 import com.facebook.GraphResponse;
 import com.facebook.login.LoginManager;
 import com.facebook.login.LoginResult;
+import com.google.android.gms.auth.GoogleAuthException;
+import com.google.android.gms.auth.GoogleAuthUtil;
+import com.google.android.gms.auth.UserRecoverableAuthException;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.Scopes;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Scope;
+import com.google.android.gms.plus.People;
 import com.google.android.gms.plus.Plus;
 import com.google.android.gms.plus.model.people.Person;
 
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 import studios.codelight.smartloginlibrary.SmartLoginBuilder;
@@ -49,9 +57,7 @@ import studios.codelight.smartloginlibrary.util.DialogUtil;
 import studios.codelight.smartloginlibrary.util.UserUtil;
 
 public class SmartLoginActivity extends AppCompatActivity implements
-        View.OnClickListener,
-        GoogleApiClient.ConnectionCallbacks,
-        GoogleApiClient.OnConnectionFailedListener{
+        View.OnClickListener{
 
     CallbackManager callbackManager;
     SmartLoginConfig config;
@@ -70,11 +76,22 @@ public class SmartLoginActivity extends AppCompatActivity implements
 
     /* Should we automatically resolve ConnectionResults when possible? */
     private boolean mShouldResolve = false;
+    private UserApi currentUser;
+    private String loginProviderIdentifier;
+    private String oAuth;
+    private String TAG;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        //get the current user details
+        currentUser = UserSessionManager.getCurrentUser(this);
+        if(currentUser != null) {
+            setResult(SmartLoginConfig.CUSTOM_LOGIN_REQUEST);
+            finish();
+        }
 
         //get the config object from the intent and unpack it
         Bundle bundle = getIntent().getExtras();
@@ -143,20 +160,6 @@ public class SmartLoginActivity extends AppCompatActivity implements
             facebookButton.setOnClickListener(this);
         }
 
-        if(config.isGoogleEnabled()){
-            //Decided to remove divider between two social buttons when there is no custom sign in option
-            /*if(!config.isCustomLoginEnabled() && config.isFacebookEnabled()){
-                signinContainer.addView(layoutInflater.inflate(R.layout.fragment_divider, mContainer, false));
-            }*/
-            signinContainer.addView(layoutInflater.inflate(R.layout.fragment_google_login, mContainer, false));
-            AppCompatButton googlePlusButton = (AppCompatButton) findViewById(R.id.login_google_button);
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP){
-                googlePlusButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.google_plus_vector, 0, 0, 0);
-            } else {
-                googlePlusButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_google_plus_white_36dp, 0, 0, 0);
-            }
-            googlePlusButton.setOnClickListener(this);
-        }
 
         //bind the views
         appLogo = (ImageView) findViewById(R.id.applogo_imageView);
@@ -177,15 +180,7 @@ public class SmartLoginActivity extends AppCompatActivity implements
         //Facebook login callback
         callbackManager = CallbackManager.Factory.create();
 
-        //Google signin requirements
-        //Build GoogleApiClient with access to basic profile
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .addApi(Plus.API)
-                .addScope(new Scope(Scopes.PLUS_LOGIN))
-                .addScope(new Scope(Scopes.EMAIL))
-                .build();
+
     }
 
     //Required for Facebook and google login
@@ -234,64 +229,7 @@ public class SmartLoginActivity extends AppCompatActivity implements
         super.onStop();
     }
 
-    @Override
-    public void onConnected(Bundle bundle) {
-        // onConnected indicates that an account was selected on the device, that the selected
-        // account has granted any requested permissions to our app and that we were able to
-        // establish a service connection to Google Play services.
-        Log.d("GOOGLE LOGIN", "onConnected:" + bundle);
-        mShouldResolve = false;
-        progress = ProgressDialog.show(this, "", getString(R.string.getting_data), true);
 
-        //Get Google profile info
-        if (Plus.PeopleApi.getCurrentPerson(mGoogleApiClient) != null) {
-            //Get the Person object of the current logged in user.
-            Person currentPerson = Plus.PeopleApi.getCurrentPerson(mGoogleApiClient);
-
-            //From that obtained Person object populate the SmartGoogleUser object
-            UserUtil util = new UserUtil();
-            SmartGoogleUser googleUser = util.populateGoogleUser(currentPerson, mGoogleApiClient);
-            progress.dismiss();
-            finishLogin(googleUser);
-        }
-    }
-
-    @Override
-    public void onConnectionSuspended(int i) {
-
-    }
-
-    @Override
-    public void onConnectionFailed(ConnectionResult connectionResult) {
-        // Could not connect to Google Play Services.  The user needs to select an account,
-        // grant permissions or resolve an error in order to sign in. Refer to the javadoc for
-        // ConnectionResult to see possible error codes.
-        final String TAG = "GOOGLE LOGIN";
-        Log.d(TAG, "onConnectionFailed:" + connectionResult);
-
-        if (!mIsResolving && mShouldResolve) {
-            if (connectionResult.hasResolution()) {
-                try {
-                    connectionResult.startResolutionForResult(this, SmartLoginConfig.GOOGLE_LOGIN_REQUEST);
-                    mIsResolving = true;
-                } catch (IntentSender.SendIntentException e) {
-                    Log.e(TAG, "Could not resolve ConnectionResult.", e);
-                    mIsResolving = false;
-                    mGoogleApiClient.connect();
-                }
-            } else {
-                // Could not resolve the connection result, show the user an
-                // error dialog.
-                progress.dismiss();
-                GooglePlayServicesUtil.getErrorDialog(connectionResult.getErrorCode(), this, 0).show();
-            }
-        }
-        else {
-            progress.dismiss();
-            Toast.makeText(this, R.string.network_error, Toast.LENGTH_SHORT).show();
-            finish();
-        }
-    }
 
     @Override
     public void onClick(View view) {
@@ -299,9 +237,6 @@ public class SmartLoginActivity extends AppCompatActivity implements
         if(id == R.id.login_fb_button){
             //do facebook login
             doFacebookLogin();
-        } else if(id == R.id.login_google_button){
-            //do google login
-            doGoogleLogin();
         } else if(id == R.id.custom_signin_button){
             //custom signin implementation
             doCustomSignin();
@@ -314,99 +249,132 @@ public class SmartLoginActivity extends AppCompatActivity implements
         } else if(id == R.id.user_signup_button){
             doCustomSignup();
         }
+        else if(id == R.id.custom_signin_button_stage2){
+            doStage2Signup();
+        }
+
     }
 
-    private void doGoogleLogin() {
-        // User clicked the sign-in button, so begin the sign-in process and automatically
-        // attempt to resolve any errors that occur.
-        progress = ProgressDialog.show(this, "", getString(R.string.logging_holder), true);
-        mShouldResolve = true;
-        mGoogleApiClient.connect();
-    }
 
-    private void doCustomSignup() {
+
+    public void doCustomSignup() {
         String username = usernameSignup.getText().toString();
         String password = passwordSignup.getText().toString();
         String repeatPassword = repeatPasswordSignup.getText().toString();
         String email = emailSignup.getText().toString();
-        if(username.equals("")){
+        if (username.equals("")) {
             //DialogUtil.getErrorDialog(R.string.username_error, this).show();
             usernameSignup.setError(getResources().getText(R.string.username_error));
             usernameSignup.requestFocus();
-        } else if(password.equals("")) {
+        } else if (password.equals("")) {
             //DialogUtil.getErrorDialog(R.string.password_error, this).show();
             passwordSignup.setError(getResources().getText(R.string.password_error));
             passwordSignup.requestFocus();
-        } else if(email.equals("")){
+        } else if (email.equals("")) {
             //DialogUtil.getErrorDialog(R.string.no_email_error, this).show();
             emailSignup.setError(getResources().getText(R.string.no_email_error));
             emailSignup.requestFocus();
-        } else if(Patterns.EMAIL_ADDRESS.matcher(email).matches()){
-            //DialogUtil.getErrorDialog(R.string.invalid_email_error, this).show();
-            emailSignup.setError(getResources().getText(R.string.invalid_email_error));
-            emailSignup.requestFocus();
-        } else if(!password.equals(repeatPassword)){
+        } else if (!password.equals(repeatPassword)) {
             //DialogUtil.getErrorDialog(R.string.password_mismatch, this).show();
             repeatPasswordSignup.setError(getResources().getText(R.string.password_mismatch));
             repeatPasswordSignup.requestFocus();
-        }
-        else {
-            if (SmartLoginBuilder.smartCustomLoginListener != null) {
-                final ProgressDialog progress = ProgressDialog.show(this, "", getString(R.string.loading_holder), true);
-                SmartUser newUser = new UserUtil().populateCustomUserWithUserName(username, email, password);
-                if (SmartLoginBuilder.smartCustomLoginListener.customSignup(newUser)) {
-                    progress.dismiss();
-                    setResult(SmartLoginConfig.CUSTOM_SIGNUP_REQUEST);
-                    finishLogin(newUser);
-                } else {
-                    progress.dismiss();
-                    setResult(RESULT_CANCELED);
-                    finish();
-                }
-            }
-        }
-
-    }
-
-    private void doCustomSignin() {
-        String username = usernameEditText.getText().toString();
-        String password = passwordEditText.getText().toString();
-        if(username.equals("")){
-            //DialogUtil.getErrorDialog(R.string.username_error, this).show();
-            if(config.getLoginType() == SmartLoginConfig.LoginType.withUsername) {
-                usernameEditText.setError(getResources().getText(R.string.username_error));
-            } else {
-                usernameEditText.setError(getResources().getText(R.string.email_error));
-            }
-            usernameEditText.requestFocus();
-        } else if(password.equals("")){
-            //DialogUtil.getErrorDialog(R.string.password_error, this).show();
-            passwordEditText.setError(getResources().getText(R.string.password_error));
-            passwordEditText.requestFocus();
         } else {
             if (SmartLoginBuilder.smartCustomLoginListener != null) {
-                final ProgressDialog progress = ProgressDialog.show(this, "", getString(R.string.logging_holder), true);
-                SmartUser user;
-                if(config.getLoginType() == SmartLoginConfig.LoginType.withUsername) {
-                    user = new UserUtil().populateCustomUserWithUserName(username, null, password);
-                } else {
-                    user = new UserUtil().populateCustomUserWithEmail(null, username, password);
-                }
-                if (SmartLoginBuilder.smartCustomLoginListener.customSignin(user)) {
-                    progress.dismiss();
-                    setResult(SmartLoginConfig.CUSTOM_LOGIN_REQUEST);
-                    finishLogin(user);
-                } else {
-                    progress.dismiss();
-                    setResult(RESULT_CANCELED);
-                    finish();
-                }
+
+
+                /**
+                 * custom AUTH works by username
+                 * @author a.khmelik 2016-04-05
+                 */
+                UserUtil userUtil = new UserUtil();
+                userUtil.context = this;
+                userUtil.apiSignUp(username, password, email);
             }
         }
     }
 
-    private void doFacebookLogin() {
-        if(config.isFacebookEnabled()) {
+
+    public void loginCallback(){
+            UserApi userApi = UserUtil.userApi;
+            if(userApi.is_reg == 1){
+                setResult(SmartLoginConfig.CUSTOM_LOGIN_REQUEST);
+                finishLogin(userApi);
+            }
+            else if(userApi.is_reg == 2){
+                signupStage2Container.setVisibility(View.VISIBLE);
+                signinContainer.setVisibility(View.GONE);
+                signupContainer.setVisibility(View.GONE);
+            }
+            else{
+                Toast.makeText(this, userApi.error_message, Toast.LENGTH_SHORT).show();
+                //setResult(RESULT_CANCELED);
+                //      finish();
+            }
+    }
+
+    public void doStage2Signup() {
+
+        EditText usernameSignup2 = (EditText) findViewById(R.id.userNameSignUpStep2);
+        String username = usernameSignup2.getText().toString();
+
+        EditText emailSignup2 = (EditText) findViewById(R.id.emailSignUpStep2);
+        String email = emailSignup2.getText().toString();
+
+            if(username.equals("")){
+                //DialogUtil.getErrorDialog(R.string.username_error, this).show();
+                usernameSignup2.setError(getResources().getText(R.string.username_error));
+                usernameSignup2.requestFocus();
+            }else if(email.equals("")){
+                //DialogUtil.getErrorDialog(R.string.no_email_error, this).show();
+                emailSignup2.setError(getResources().getText(R.string.no_email_error));
+                emailSignup2.requestFocus();
+            }
+            else {
+                if (SmartLoginBuilder.smartCustomLoginListener != null) {
+
+                    UserUtil userUtil = new UserUtil();
+                    userUtil.context =this;
+                    userUtil.apiSignUpStage2(oAuth, loginProviderIdentifier, username, email);
+                }
+            }
+    }
+
+    public void doCustomSignin() {
+            String username = usernameEditText.getText().toString();
+            String password = passwordEditText.getText().toString();
+            if(username.equals("")){
+                //DialogUtil.getErrorDialog(R.string.username_error, this).show();
+                if(config.getLoginType() == SmartLoginConfig.LoginType.withUsername) {
+                    usernameEditText.setError(getResources().getText(R.string.username_error));
+                } else {
+                    usernameEditText.setError(getResources().getText(R.string.email_error));
+                }
+                usernameEditText.requestFocus();
+            } else if(password.equals("")){
+                //DialogUtil.getErrorDialog(R.string.password_error, this).show();
+                passwordEditText.setError(getResources().getText(R.string.password_error));
+                passwordEditText.requestFocus();
+            } else {
+
+                if (SmartLoginBuilder.smartCustomLoginListener != null) {
+                    final ProgressDialog progress = ProgressDialog.show(this, "", getString(R.string.logging_holder), true);
+
+                    /**
+                     * custom AUTH works by username
+                     * @author a.khmelik 2016-04-05
+                     */
+                    UserUtil userUtil = new UserUtil();
+                    userUtil.context =this;
+                    userUtil.apiSignIn(username, password);
+                    progress.dismiss();
+                }
+            }
+    }
+
+    public void doFacebookLogin() {
+
+
+            final SmartLoginActivity context = this;
             Toast.makeText(SmartLoginActivity.this, "Facebook login", Toast.LENGTH_SHORT).show();
             final ProgressDialog progress = ProgressDialog.show(this, "", getString(R.string.logging_holder), true);
             ArrayList<String> permissions = config.getFacebookPermissions();
@@ -415,6 +383,7 @@ public class SmartLoginActivity extends AppCompatActivity implements
             }
             LoginManager.getInstance().logInWithReadPermissions(SmartLoginActivity.this, permissions);
             LoginManager.getInstance().registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
+
                 @Override
                 public void onSuccess(LoginResult loginResult) {
                     progress.setMessage(getString(R.string.getting_data));
@@ -425,7 +394,16 @@ public class SmartLoginActivity extends AppCompatActivity implements
                             UserUtil util = new UserUtil();
                             SmartFacebookUser facebookUser = util.populateFacebookUser(object);
                             if(facebookUser != null){
-                                finishLogin(facebookUser);
+                                //oauth
+                                //Facebook
+                                util.context =context;
+                                oAuth  = facebookUser.getUserId();
+                                loginProviderIdentifier =  "Facebook";
+                                util.oauthSignIn(oAuth, loginProviderIdentifier);
+
+                                progress.dismiss();
+
+                                                               // finishLogin(facebookUser);
                             } else {
                                 finish();
                             }
@@ -448,37 +426,21 @@ public class SmartLoginActivity extends AppCompatActivity implements
                     Toast.makeText(SmartLoginActivity.this, R.string.network_error, Toast.LENGTH_SHORT).show();
                 }
             });
-        }
     }
 
-    private void finishLogin(SmartUser smartUser){
+    private void finishLogin(UserApi userApi){
 
 
 //        @todo  should add post auth from backend
         UserSessionManager sessionManager = new UserSessionManager();
-        if(sessionManager.setUserSession(this, smartUser)){
+        if(sessionManager.setUserSession(this, userApi)){
             Intent intent = new Intent();
-            intent.putExtra(SmartLoginConfig.USER, smartUser);
-
-            if(smartUser instanceof SmartFacebookUser || smartUser instanceof SmartGoogleUser){
-
-                signupStage2Container.setVisibility(View.VISIBLE);
+            intent.putExtra(SmartLoginConfig.USER, userApi);
                 signinContainer.setVisibility(View.GONE);
                 signupContainer.setVisibility(View.GONE);
+            setResult(SmartLoginConfig.CUSTOM_LOGIN_REQUEST, intent);
 
-//                if(smartUser instanceof SmartFacebookUser) {
-//                    setResult(SmartLoginConfig.FACEBOOK_LOGIN_REQUEST, intent);
-//                } else if(smartUser instanceof SmartGoogleUser) {
-//                    setResult(SmartLoginConfig.GOOGLE_LOGIN_REQUEST, intent);
-//                }
-
-
-
-            }
-            else {
-                setResult(SmartLoginConfig.CUSTOM_LOGIN_REQUEST, intent);
-                finish();
-            }
+            finish();
 
         } else {
             DialogUtil.getErrorDialog(R.string.network_error, this);

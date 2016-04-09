@@ -32,4 +32,12 @@ dependencies {
     compile 'com.facebook.android:facebook-android-sdk:4.0.1'
     //GSON lib
     compile 'com.google.code.gson:gson:2.4'
+
+    compile 'com.google.code.gson:gson:2.6.2'
+    compile 'com.squareup.retrofit2:retrofit:2.0.1'
+    compile 'com.squareup.retrofit2:converter-gson:2.0.1'
+    compile 'com.squareup.okhttp3:okhttp:3.2.0'
+    provided 'org.glassfish:javax.annotation:10.0-b28'
+
+
 }
